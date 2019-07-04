@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>Concatenate lists</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
+  <link href="https://fonts.googleapis.com/css?family=Roboto&display=swap" rel="stylesheet"/>
+  <style>
+    body {
+      box-sizing: border-box;
+      font-family: 'Roboto', Arial, sans-serif;
+      font-weight: 400;
+      margin: 0;
+      min-height: 100vh;
+      padding: 10px;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 5px;
+      padding: 0;
+      text-align: center;
+    }
+
+    .cpy-btns {
+
+    }
+
+    pre {
+      margin: 5px 0;
+    }
+
+    button {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Concatenate lists of text</h1>
+  <div id="app">
+
+    <div style="overflow: hidden;position: relative;">
+      <div v-for="(textInput, index) in cols" style="float: left; clear: none; padding: 0 10px;">
+        <div style="margin-bottom: 8px;">
+          Column
+        </div>
+        <textarea v-model="cols[index]" style="height: 50vh;" placeholder="Paste the text to be concatenated here."></textarea>
+      </div>
+
+      <div style="position: absolute;bottom: 0;display: inline-block;">
+        <button @click="addCol" title="Add new column.">+</button>
+        <button @click="concatenate" title="Concatenate.">Concatenate</button>
+      </div>
+    </div>
+
+    <div style="margin-top: 25px;">
+      <button @click="copy" class="cpy-btns" v-if="output != ''">Copy</button>
+      <pre>
+{{ output}}
+      </pre>
+    </div>
+  </div>
+  <script>
+    new Vue({
+      el: '#app',
+      data: {
+        cols: [
+          '',
+          ''
+        ],
+        output: ''
+      },
+      methods: {
+        concatenate: function() {
+          var linesCol = [];
+          for (var i = 0; i < this.cols.length; i++) {
+            // window.localStorage.setItem('col' + (i + 1), this.cols[i]);
+            linesCol[i] = this.cols[i].split(/\r?\n/);
+          }
+          var maxLenghtCol = 0;
+          linesCol.forEach(function(eachColLines) {
+            if (eachColLines.length > maxLenghtCol) maxLenghtCol = eachColLines.length;
+          })
+          var concatenated = '';
+          for (var j = 0; j < maxLenghtCol; j++) {
+            for (var i = 0; i < this.cols.length; i++) {
+              concatenated += ((linesCol[i][j]) ? linesCol[i][j] : '');
+            };
+            concatenated += "\r\n";
+          }
+          concatenated += "\r\n";
+          this.output = concatenated;
+        },
+        addCol: function() {
+          this.cols.push('');
+        },
+        copy: function() {
+          var t = document.createElement('textarea');
+          t.style.width = '0';
+          t.style.height = '0';
+          t.style.border = '0';
+          t.value = this.output;
+          document.body.appendChild(t);
+          t.select();document.execCommand('copy');
+          t.parentNode.removeChild(t);
+        }
+      },
+      mounted: function() {
+        this.$nextTick(function() {
+          if (window.localStorage.getItem('col1')) {
+            // this.cols[0] = window.localStorage.getItem('col1');
+            // this.cols[1] = window.localStorage.getItem('col2');
+          }
+        })
+      }
+    })
+  </script>
+</body>
+</html>
