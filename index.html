@@ -45,18 +45,23 @@
         <div style="margin-bottom: 8px;">
           Column
         </div>
-        <textarea v-model="cols[index]" style="height: 50vh;" placeholder="Paste the text to be concatenated here."></textarea>
+        <textarea v-model="cols[index]" :tabindex="index + 1" style="height: 50vh;" placeholder="Paste the text to be concatenated here." @keyup="checkLongest"></textarea>
+        <div style="padding: 5px;text-align: center;">
+          <button @click="repeatPattern(index)" title="Concatenate." style="font-size: 12px;" v-if="lengthCols[index] < longestCol && cols[index] !== ''">Repeat pattern</button>
+        </div>
       </div>
 
-      <div style="position: absolute;bottom: 0;display: inline-block;">
+      <div style="position: absolute;bottom: 35px;display: inline-block;">
         <button @click="addCol" title="Add new column.">+</button>
-        <button @click="concatenate" title="Concatenate.">Concatenate</button>
       </div>
     </div>
+    <div style="padding: 10px;text-align: center;">
+      <button @click="concatenate" title="Concatenate.">Concatenate</button>
+    </div>
 
-    <div style="margin-top: 25px;">
+    <div style="margin: 25px 10px;">
       <button @click="copy" class="cpy-btns" v-if="output != ''">Copy</button>
-      <pre>
+      <pre style="margin-top: 5px;padding: 5px;">
 {{ output}}
       </pre>
     </div>
@@ -69,10 +74,18 @@
           '',
           ''
         ],
-        output: ''
+        output: '',
+        lengthCols: [
+          0,
+          0
+        ],
+        longestCol: 0
       },
       methods: {
         concatenate: function() {
+          this.cols.forEach(function(eachCol, index, theArray) {
+            theArray[index] = eachCol.trim();
+          });
           var linesCol = [];
           for (var i = 0; i < this.cols.length; i++) {
             // window.localStorage.setItem('col' + (i + 1), this.cols[i]);
@@ -94,6 +107,7 @@
         },
         addCol: function() {
           this.cols.push('');
+          this.lengthCols.push(0);
         },
         copy: function() {
           var t = document.createElement('textarea');
@@ -104,6 +118,39 @@
           document.body.appendChild(t);
           t.select();document.execCommand('copy');
           t.parentNode.removeChild(t);
+        },
+        repeatPattern: function(currentCol) {
+          this.cols.forEach(function(eachCol, index, theArray) {
+            theArray[index] = eachCol.trim();
+          });
+          var linesCol = [];
+          var lastLineInCol = [];
+          for (var i = 0; i < this.cols.length; i++) {
+            linesCol[i] = this.cols[i].split(/\r?\n/);
+            lastLineInCol[i] = linesCol[linesCol.length - 1];
+          }
+          var maxLenghtCol = 0;
+          linesCol.forEach(function(eachColLines) {
+            if (eachColLines.length > maxLenghtCol) maxLenghtCol = eachColLines.length;
+          });
+          var colContent = this.cols[currentCol];
+          for (var r = linesCol[currentCol].length; r < maxLenghtCol; r++) {
+            colContent += "\r\n" + lastLineInCol[currentCol];
+          }
+          this.$set(this.cols, currentCol, colContent); // updating array doesn't set reactivity
+        },
+        checkLongest: function() {
+          var linesCol = [];
+          for (var i = 0; i < this.cols.length; i++) {
+            linesCol[i] = this.cols[i].split(/\r?\n/);
+            this.lengthCols[i] = linesCol[i].length;
+          }
+          var maxLenghtCol = 0;
+          linesCol.forEach(function(eachColLines, index) {
+            if (eachColLines.length > maxLenghtCol)
+              maxLenghtCol = eachColLines.length;
+          })
+          this.longestCol = maxLenghtCol;
         }
       },
       mounted: function() {
