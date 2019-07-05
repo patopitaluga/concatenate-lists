@@ -144,6 +144,7 @@
         },
         repeatPattern: function(currentCol) {
           this.$set(this.cols, currentCol, this.textIfRepeatPattern[currentCol]); // updating array doesn't set reactivity
+          this.concatenate();
         },
         checkLongest: function() {
           this.copied = false;
