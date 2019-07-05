@@ -34,6 +34,22 @@
     button {
       cursor: pointer;
     }
+
+    textarea {
+      font-size: 13px;
+      font-family: monospace;
+    }
+
+    .to-be-repeated {
+      color: #ccc;
+      font-family: monospace;
+      font-size: 13px;
+      left: 3px;
+      position: absolute;
+      top: 3px;
+      white-space: pre;
+      z-index: -1;
+    }
   </style>
 </head>
 <body>
@@ -45,9 +61,10 @@
         <div style="margin-bottom: 8px;">
           Column
         </div>
-        <textarea v-model="cols[index]" :tabindex="index + 1" style="height: 50vh;" placeholder="Paste the text to be concatenated here." @keyup="checkLongest"></textarea>
-        <div style="padding: 5px;text-align: center;">
-          <button @click="repeatPattern(index)" title="Concatenate." style="font-size: 12px;" v-if="lengthCols[index] < longestCol && cols[index] !== ''">Repeat pattern</button>
+        <div style="position: relative">
+          <textarea v-model="cols[index]" :tabindex="index + 1" style="height: 50vh;background: transparent;" placeholder="Paste the text to be concatenated here." @keyup="checkLongest"></textarea>
+          <button @click="repeatPattern(index)" style="font-size: 12px;position: absolute; bottom: 10px; right: 5px;background: transparent; border: 0; color: #666;" v-if="lengthCols[index] < longestCol && cols[index] !== ''">Repeat</button>
+<div class="to-be-repeated">{{ (lengthCols[index] < longestCol && cols[index] !== '') ? textIfRepeatPattern[index] : '' }}</div>
         </div>
       </div>
 
@@ -55,15 +72,13 @@
         <button @click="addCol" title="Add new column.">+</button>
       </div>
     </div>
-    <div style="padding: 10px;text-align: center;">
-      <button @click="concatenate" title="Concatenate.">Concatenate</button>
-    </div>
 
-    <div style="margin: 25px 10px;">
-      <button @click="copy" class="cpy-btns" v-if="output != ''">Copy</button>
-      <pre style="margin-top: 5px;padding: 5px;">
+    <div style="margin: 25px 10px;position: relative;padding-bottom:30px;" @mouseover="showCopy = true" @mouseleave="showCopy = false">
+      <pre style="margin-top: 5px;padding: 5px;border: 1px #aaa solid;border-radius: 3px;">
 {{ output}}
       </pre>
+      <span v-if="copied" style="margin-left: 5px; color: #666; font-size: 12px;">Copied to clipboard</span>
+      <button @click="copy" class="cpy-btns" v-if="output != '' && showCopy" style="position: absolute; right: 5px;top: 5px;" @mouseover.stop="showCopy = true">Copy</button>
     </div>
   </div>
   <script>
@@ -79,13 +94,19 @@
           0,
           0
         ],
-        longestCol: 0
+        longestCol: 0,
+        textIfRepeatPattern: [
+          '',
+          ''
+        ],
+        copied: false,
+        showCopy: false
       },
       methods: {
         concatenate: function() {
-          this.cols.forEach(function(eachCol, index, theArray) {
-            theArray[index] = eachCol.trim();
-          });
+          //this.cols.forEach(function(eachCol, index, theArray) {
+            //theArray[index] = eachCol.trim();
+          //});
           var linesCol = [];
           for (var i = 0; i < this.cols.length; i++) {
             // window.localStorage.setItem('col' + (i + 1), this.cols[i]);
@@ -108,6 +129,7 @@
         addCol: function() {
           this.cols.push('');
           this.lengthCols.push(0);
+          this.textIfRepeatPattern.push('');
         },
         copy: function() {
           var t = document.createElement('textarea');
@@ -118,28 +140,13 @@
           document.body.appendChild(t);
           t.select();document.execCommand('copy');
           t.parentNode.removeChild(t);
+          this.copied = true;
         },
         repeatPattern: function(currentCol) {
-          this.cols.forEach(function(eachCol, index, theArray) {
-            theArray[index] = eachCol.trim();
-          });
-          var linesCol = [];
-          var lastLineInCol = [];
-          for (var i = 0; i < this.cols.length; i++) {
-            linesCol[i] = this.cols[i].split(/\r?\n/);
-            lastLineInCol[i] = linesCol[linesCol.length - 1];
-          }
-          var maxLenghtCol = 0;
-          linesCol.forEach(function(eachColLines) {
-            if (eachColLines.length > maxLenghtCol) maxLenghtCol = eachColLines.length;
-          });
-          var colContent = this.cols[currentCol];
-          for (var r = linesCol[currentCol].length; r < maxLenghtCol; r++) {
-            colContent += "\r\n" + lastLineInCol[currentCol];
-          }
-          this.$set(this.cols, currentCol, colContent); // updating array doesn't set reactivity
+          this.$set(this.cols, currentCol, this.textIfRepeatPattern[currentCol]); // updating array doesn't set reactivity
         },
         checkLongest: function() {
+          this.copied = false;
           var linesCol = [];
           for (var i = 0; i < this.cols.length; i++) {
             linesCol[i] = this.cols[i].split(/\r?\n/);
@@ -151,6 +158,29 @@
               maxLenghtCol = eachColLines.length;
           })
           this.longestCol = maxLenghtCol;
+          this.concatenate();
+
+          //this.cols.forEach(function(eachCol, index, theArray) {
+            //theArray[index] = eachCol.trim();
+          //});
+          var linesCol = [];
+          var lastLineInCol = [];
+          for (var i = 0; i < this.cols.length; i++) {
+            linesCol[i] = this.cols[i].trim().split(/\r?\n/);
+            lastLineInCol[i] = linesCol[i][linesCol[i].length - 1];
+          }
+          var maxLenghtCol = 0;
+          linesCol.forEach(function(eachColLines) {
+            if (eachColLines.length > maxLenghtCol) maxLenghtCol = eachColLines.length;
+          });
+          var that = this;
+          this.cols.forEach(function(eachCol, index) {
+            var nextTextIfRepeatPattern = that.cols[index];
+            for (var r = linesCol[index].length; r < maxLenghtCol; r++) {
+              nextTextIfRepeatPattern += "\r\n" + lastLineInCol[index];
+            }
+            that.$set(that.textIfRepeatPattern, index, nextTextIfRepeatPattern); // updating array doesn't set reactivity
+          });
         }
       },
       mounted: function() {
