@@ -37,8 +37,11 @@
     }
 
     textarea {
-      font-size: 13px;
+      box-sizing: border-box;
       font-family: monospace;
+      font-size: 13px;
+      white-space: nowrap;
+      width: 100%;
     }
 
     .to-be-repeated {
@@ -46,10 +49,23 @@
       font-family: monospace;
       font-size: 13px;
       left: 3px;
+      right: 3px;
+      overflow: hidden;
       position: absolute;
       top: 3px;
+      white-space: nowrap;
       white-space: pre;
       z-index: -1;
+    }
+    .repeat-btn {
+      background: transparent;
+      border: 0;
+      bottom: 26px;
+      color: #666;
+      cursor: pointer;
+      font-size: 12px;
+      position: absolute;
+      right: 3px;
     }
   </style>
 </head>
@@ -57,15 +73,16 @@
   <h1>Concatenate lists of text</h1>
   <div id="app">
 
-    <div style="overflow: hidden;position: relative;">
+    <div style="overflow: hidden;">
       <div v-for="(textInput, index) in cols" style="float: left; clear: none; padding: 0 10px;">
         <div style="margin-bottom: 8px;">
           Column {{ (index + 1) }}
         </div>
         <div style="position: relative">
-          <textarea v-model="cols[index]" :tabindex="index + 1" style="height: 50vh;background: transparent;" placeholder="Paste the text to be concatenated here." @keyup="checkLongest"></textarea>
-          <button @click="repeatPattern(index)" style="font-size: 12px;position: absolute; bottom: 10px; right: 5px;background: transparent; border: 0; color: #666;" v-if="lengthCols[index] < longestCol && cols[index] !== ''">Repeat</button>
-<div class="to-be-repeated">{{ (lengthCols[index] < longestCol && cols[index] !== '') ? textIfRepeatPattern[index] : '' }}</div>
+          <button @click="repeatPattern(index)" class="repeat-btn" v-if="lengthCols[index] < longestCol && cols[index] !== ''">Repeat</button>
+          <textarea v-model="cols[index]" :tabindex="index + 1" style="height: 50vh;background: transparent;z-index: 999;" placeholder="Paste the text to be concatenated here." @keyup="checkLongest"></textarea>
+          <div class="to-be-repeated">{{
+            (lengthCols[index] < longestCol && cols[index] !== '') ? textIfRepeatPattern[index] : '' }}</div>
         </div>
       </div>
 
@@ -145,6 +162,7 @@
         },
         repeatPattern: function(currentCol) {
           this.$set(this.cols, currentCol, this.textIfRepeatPattern[currentCol]); // updating array doesn't set reactivity
+          this.textIfRepeatPattern[currentCol] = '';
           this.concatenate();
         },
         checkLongest: function() {
