@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <title>Concatenate lists</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.min.js"></script>
   <link href="https://fonts.googleapis.com/css?family=Roboto&display=swap" rel="stylesheet"/>
   <style>
     body {
@@ -36,6 +36,10 @@
       cursor: pointer;
     }
 
+    button:focus {
+      outline: 0;
+    }
+
     textarea {
       box-sizing: border-box;
       font-family: monospace;
@@ -57,7 +61,28 @@
       white-space: pre;
       z-index: -1;
     }
-    .repeat-btn {
+
+    .col-tools-options {
+      background: transparent;
+      border: 0;
+      bottom: 39px;
+      color: #666;
+      cursor: pointer;
+      font-size: 12px;
+      position: absolute;
+      right: 3px;
+    }
+
+    .col-tools-options button {
+      background: transparent;
+      border: 0;
+      color: #666;
+      cursor: pointer;
+      display: block;
+      font-size: 12px;
+    }
+
+    .col-tool {
       background: transparent;
       border: 0;
       bottom: 26px;
@@ -67,22 +92,48 @@
       position: absolute;
       right: 3px;
     }
+
+    .cols-container {
+      overflow: hidden;
+      position: relative;
+    }
+
+    .col {
+      clear: none;
+      float: left;
+      padding: 0 10px;
+    }
+
+    .col textarea {
+      background: transparent;
+      height: 50vh;
+      z-index: 999;
+    }
   </style>
 </head>
 <body>
   <h1>Concatenate lists of text</h1>
   <div id="app">
 
-    <div style="overflow: hidden;position: relative;">
-      <div v-for="(textInput, index) in cols" style="float: left; clear: none; padding: 0 10px;">
+    <div class="cols-container">
+      <div v-for="(textInput, index) in colsContent" class="col">
         <div style="margin-bottom: 8px;">
           Column {{ (index + 1) }}
         </div>
         <div style="position: relative">
-          <button @click="repeatPattern(index)" class="repeat-btn" v-if="lengthCols[index] < longestCol && cols[index] !== ''">Repeat</button>
-          <textarea v-model="cols[index]" :tabindex="index + 1" style="height: 50vh;background: transparent;z-index: 999;" placeholder="Paste the text to be concatenated here." @keyup="checkLongest"></textarea>
-          <div class="to-be-repeated">{{
-            (lengthCols[index] < longestCol && cols[index] !== '') ? textIfRepeatPattern[index] : '' }}</div>
+          <div class="col-tools-options" v-if="displayingTools[index]">
+            <button @click="trimColumn(index)" v-if="colsContentAsArray[index].length > 1 || colsContentAsArray[index][0].length > 0">Trim</button>
+            <button @click="repeatPattern(index)" v-if="colsContentAsArray[index].length < getLongestCol && colsContent[index] !== ''">Repeat</button>
+          </div>
+          <button @click="displayTools(index)" class="col-tool" v-if="!displayingTools[index] && ((colsContentAsArray[index].length > 1 || colsContentAsArray[index][0].length > 0) || (colsContentAsArray[index].length < getLongestCol && colsContent[index] !== ''))">🔧</button>
+          <textarea
+            :tabindex="index + 1"
+            @focus="focusOnColTextarea(index)"
+            @keyup="contentChanged"
+            placeholder="Paste the text to be concatenated here."
+            v-model="colsContent[index]"
+            ></textarea>
+          <div class="to-be-repeated">{{ (colsContentAsArray[index].length < getLongestCol && colsContent[index] !== '') ? textIfRepeatPattern[index] : '' }}</div>
         </div>
       </div>
 
@@ -93,7 +144,7 @@
 
     <div style="margin: 25px 10px;position: relative;padding-bottom:30px;" @mouseover="showCopy = true" @mouseleave="showCopy = false">
       <pre style="margin-top: 5px;padding: 5px;border: 1px #aaa solid;border-radius: 3px;">
-{{ output}}
+{{ output }}
       </pre>
       <span v-if="copied" style="margin-left: 5px; color: #666; font-size: 12px;">Copied to clipboard</span>
       <button @click="copy" class="cpy-btns" v-if="output != '' && showCopy" style="position: absolute; right: 5px;top: 5px;" @mouseover.stop="showCopy = true">Copy</button>
@@ -103,16 +154,15 @@
     new Vue({
       el: '#app',
       data: {
-        cols: [
+        colsContent: [
           '',
           ''
         ],
-        output: '',
-        lengthCols: [
-          0,
-          0
+        displayingTools: [
+          false,
+          false
         ],
-        longestCol: 0,
+        output: '',
         textIfRepeatPattern: [
           '',
           ''
@@ -120,35 +170,73 @@
         copied: false,
         showCopy: false
       },
-      methods: {
-        concatenate: function() {
-          //this.cols.forEach(function(eachCol, index, theArray) {
-            //theArray[index] = eachCol.trim();
-          //});
-          var linesCol = [];
-          for (var i = 0; i < this.cols.length; i++) {
-            // window.localStorage.setItem('col' + (i + 1), this.cols[i]);
-            linesCol[i] = this.cols[i].split(/\r?\n/);
+      computed: {
+        /**
+         *
+         *
+         * @returns {array} The columns content as an array with each line as an array item.
+         */
+        colsContentAsArray() {
+          var colsContentAsArray = [];
+          for (var i = 0; i < this.colsContent.length; i++) {
+            // window.localStorage.setItem('col' + (i + 1), this.colsContent[i]); // Saves the content of the columns in localStorage. Useful when testing. Disabled for production.
+            colsContentAsArray[i] = this.colsContent[i].split(/\r?\n/);
           }
+          return colsContentAsArray;
+        },
+
+        /**
+         *
+         *
+         * @returns {number} How long is the text (in lines) in the longest col.
+         */
+        getLongestCol() {
           var maxLenghtCol = 0;
-          linesCol.forEach(function(eachColLines) {
-            if (eachColLines.length > maxLenghtCol) maxLenghtCol = eachColLines.length;
+          this.colsContentAsArray.forEach(function(eachCol) {
+            if (eachCol.length > maxLenghtCol) maxLenghtCol = eachCol.length;
           })
+          return maxLenghtCol;
+        }
+      },
+      methods: {
+        /**
+         *
+         */
+        displayTools: function(colNumber) {
+          this.$set(this.displayingTools, colNumber, true); // updating array doesn't set reactivity
+        },
+
+        /**
+         * Concatenate the columns and generate the output string to be displayed.
+         */
+        concatenate: function() {
+          var longestCol = this.getLongestCol; // To avoid calling getLongestCol many times in the loop.
           var concatenated = '';
-          for (var j = 0; j < maxLenghtCol; j++) {
-            for (var i = 0; i < this.cols.length; i++) {
-              concatenated += ((linesCol[i][j]) ? linesCol[i][j] : '');
+          for (var line = 0; line < longestCol; line++) {
+            for (var col = 0; col < this.colsContent.length; col++) {
+              // if that line in that column exists, concatenate it's content. If not, concatenate an empty string.
+              if (this.colsContentAsArray[col][line])
+                concatenated += this.colsContentAsArray[col][line];
             };
             concatenated += "\r\n";
           }
           concatenated += "\r\n";
           this.output = concatenated;
         },
+
+        /**
+         * Adds a new column to the right, to be filled with text to be concatenated.
+         */
         addCol: function() {
-          this.cols.push('');
-          this.lengthCols.push(0);
+          this.colsContent.push('');
           this.textIfRepeatPattern.push('');
+          this.displayingTools.push(false);
         },
+
+        /**
+         * Send the concatenated text to the clipboard.
+         * Creates an empty textarea and fills it with the concatenated text, selects it all and and triggers the copy.
+         */
         copy: function() {
           var t = document.createElement('textarea');
           t.style.width = '0';
@@ -156,60 +244,79 @@
           t.style.border = '0';
           t.value = this.output;
           document.body.appendChild(t);
-          t.select();document.execCommand('copy');
+          t.select();
+          document.execCommand('copy');
           t.parentNode.removeChild(t);
-          this.copied = true;
+          this.copied = true; // Displays the message.
         },
-        repeatPattern: function(currentCol) {
-          this.$set(this.cols, currentCol, this.textIfRepeatPattern[currentCol]); // updating array doesn't set reactivity
-          this.textIfRepeatPattern[currentCol] = '';
-          this.concatenate();
-        },
-        checkLongest: function() {
-          this.copied = false;
-          var linesCol = [];
-          for (var i = 0; i < this.cols.length; i++) {
-            linesCol[i] = this.cols[i].split(/\r?\n/);
-            this.lengthCols[i] = linesCol[i].length;
-          }
-          var maxLenghtCol = 0;
-          linesCol.forEach(function(eachColLines, index) {
-            if (eachColLines.length > maxLenghtCol)
-              maxLenghtCol = eachColLines.length;
-          })
-          this.longestCol = maxLenghtCol;
-          this.concatenate();
 
-          //this.cols.forEach(function(eachCol, index, theArray) {
-            //theArray[index] = eachCol.trim();
-          //});
-          var linesCol = [];
-          var lastLineInCol = [];
-          for (var i = 0; i < this.cols.length; i++) {
-            linesCol[i] = this.cols[i].trim().split(/\r?\n/);
-            lastLineInCol[i] = linesCol[i][linesCol[i].length - 1];
-          }
-          var maxLenghtCol = 0;
-          linesCol.forEach(function(eachColLines) {
-            if (eachColLines.length > maxLenghtCol) maxLenghtCol = eachColLines.length;
-          });
+        /**
+         * Removes spaces before and after each line in a column.
+         */
+        trimColumn: function(colNumber) {
+          var trimmedContent = '';
+          this.colsContentAsArray[colNumber].forEach(function(eachLine, index) {
+            trimmedContent += ((index > 0) ? "\r\n" : '') + eachLine.trim();
+          })
+          this.$set(this.colsContent, colNumber, trimmedContent); // updating array doesn't set reactivity
+          this.contentChanged();
+          this.$set(this.displayingTools, colNumber, false); // updating array doesn't set reactivity
+        },
+
+        /**
+         * Repeats the last string in the column to fill the longest column.
+         */
+        repeatPattern: function(colNumber) {
+          this.$set(this.colsContent, colNumber, this.textIfRepeatPattern[colNumber]); // updating array doesn't set reactivity.
+          this.textIfRepeatPattern[colNumber] = '';
+          this.concatenate();
+          this.$set(this.displayingTools, colNumber, false); // updating array doesn't set reactivity
+        },
+
+        /**
+         *
+         */
+        setTextsToRepeat: function() {
+          var longestCol = this.getLongestCol; // To avoid calling getLongestCol many times in the loop.
           var that = this;
-          this.cols.forEach(function(eachCol, index) {
-            var nextTextIfRepeatPattern = that.cols[index];
-            for (var r = linesCol[index].length; r < maxLenghtCol; r++) {
-              nextTextIfRepeatPattern += "\r\n" + lastLineInCol[index];
+          for (var colNumber = this.colsContent.length - 1; colNumber >= 0; colNumber--) {
+            var nextTextIfRepeatPattern = that.colsContent[colNumber];
+            var lastLineInCurrentCol = that.colsContentAsArray[colNumber][that.colsContentAsArray[colNumber].length - 1];
+            for (var r = that.colsContentAsArray[colNumber].length; r < longestCol; r++) {
+              nextTextIfRepeatPattern += "\r\n" + lastLineInCurrentCol;
             }
-            that.$set(that.textIfRepeatPattern, index, nextTextIfRepeatPattern); // updating array doesn't set reactivity
-          });
+            that.$set(that.textIfRepeatPattern, colNumber, nextTextIfRepeatPattern); // updating array doesn't set reactivity
+          };
+        },
+
+        /**
+         *
+         */
+        focusOnColTextarea: function(colNumber) {
+          for (var colNumber = this.colsContent.length - 1; colNumber >= 0; colNumber--) {
+            this.$set(this.displayingTools, colNumber, false); // updating array doesn't set reactivity
+          }
+        },
+
+        /**
+         * Is triggered every time the content of a column is updated (on keyup).
+         */
+        contentChanged: function() {
+          this.copied = false; // Hides the "copied" message because the concatenated text has changed.
+          this.concatenate();
+          this.setTextsToRepeat();
         }
       },
       mounted: function() {
-        this.$nextTick(function() {
+        /**
+         * Fill the two columns with the content in the localStorage. Useful when testing. Disabled for production.
+         */
+        /* this.$nextTick(function() {
           if (window.localStorage.getItem('col1')) {
-            // this.cols[0] = window.localStorage.getItem('col1');
-            // this.cols[1] = window.localStorage.getItem('col2');
+            // this.colsContent[0] = window.localStorage.getItem('col1');
+            // this.colsContent[1] = window.localStorage.getItem('col2');
           }
-        })
+        }) */
       }
     })
   </script>
